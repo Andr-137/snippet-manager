@@ -1,0 +1,25 @@
+{
+    "header": {
+        "add": "Add",
+        "language": "Language"
+    },
+    "commands": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "run": "Run"
+    },
+    "form": {
+        "title": "Command title",
+        "command": "Command (e.g., npm run dev)",
+        "save": "Save command",
+        "cancel": "Cancel",
+        "addNew": "Add new command",
+        "edit": "Edit command"
+    },
+    "messages": {
+        "noCommands": "No saved commands",
+        "deleteConfirm": "Are you sure you want to delete command \"{title}\"?",
+        "saved": "Command saved",
+        "deleted": "Command deleted"
+    }
+}
