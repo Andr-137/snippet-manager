@@ -1,15 +1,33 @@
 {
     "name": "snippet-manager",
-    "displayName": "Snippet Manager",
-    "description": "Сниппеты для терминала",
-    "publisher": "local",
+    "displayName": "Commands to the terminal",
+    "description": "Команды для терминала",
+    "publisher": "Andrey-Ryabov-137",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.105.1"
     },
     "categories": [
-        "Other"
+        "Other",
+        "Snippets"
     ],
+    "keywords": [
+        "snippet",
+        "terminal",
+        "command",
+        "runner",
+        "productivity"
+    ],
+    "icon": "media/icon-128.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Andr-137/snippet-manager"
+    },
+    "homepage": "https://github.com/Andr-137/snippet-manager#readme",
+    "bugs": {
+        "url": "https://github.com/Andr-137/snippet-manager/issues"
+    },
+    "license": "MIT",
     "activationEvents": [
         "onStartupFinished"
     ],
@@ -71,10 +89,12 @@
         }
     },
     "scripts": {
-        "compile": "tsc -p tsconfig.json",
-        "watch": "tsc -p tsconfig.json -w",
-        "copy-files": "node ./scripts/copy-files.js",
-        "vscode:prepublish": "npm run compile"
+        "vscode:prepublish": "npm run compile",
+        "compile": "npm run copy-files && tsc -p tsconfig.json",
+        "watch": "npm run copy-files && tsc -p tsconfig.json -w",
+        "package": "vsce package",
+        "publish": "vsce publish",
+        "copy-files": "copyfiles \"src/assets/**/*\" dist/"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
@@ -84,6 +104,7 @@
         "@typescript-eslint/parser": "^8.45.0",
         "@vscode/test-cli": "^0.0.11",
         "@vscode/test-electron": "^2.5.2",
+        "copyfiles": "^2.4.1",
         "esbuild": "^0.25.12",
         "eslint": "^9.36.0",
         "npm-run-all": "^4.1.5",
