@@ -14,7 +14,7 @@
 
 1. Откройте VS Code
 2. Перейдите в Extensions (Ctrl+Shift+X)
-3. Найдите "Snippet Manager"
+3. Найдите "command-snippet-terminal"
 4. Нажмите Install
 
 ## Использование
