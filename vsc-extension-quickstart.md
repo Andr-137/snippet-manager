@@ -1,48 +1,48 @@
-# Welcome to your VS Code Extension
+# Добро пожаловать в расширение VS Code 
 
-## What's in the folder
+## Что в папке 
 
-* This folder contains all of the files necessary for your extension.
-* `package.json` - this is the manifest file in which you declare your extension and command.
-  * The sample plugin registers a command and defines its title and command name. With this information VS Code can show the command in the command palette. It doesn’t yet need to load the plugin.
-* `src/extension.ts` - this is the main file where you will provide the implementation of your command.
-  * The file exports one function, `activate`, which is called the very first time your extension is activated (in this case by executing the command). Inside the `activate` function we call `registerCommand`.
-  * We pass the function containing the implementation of the command as the second parameter to `registerCommand`.
+* Эта папка содержит все файлы, необходимые для вашего расширения. 
+* `package.json` — это файл манифеста, в котором вы объявляете свое расширение и команду. 
+* Пример плагина регистрирует команду и определяет ее заголовок и имя команды. Благодаря этой информации VS Code может отображать команду в палитре команд. Плагин пока загружать не нужно. 
+* `src/extension.ts` — это основной файл, в котором вы обеспечите реализацию вашей команды. 
+* Файл экспортирует одну функцию, `activate`, которая вызывается при первой активации вашего расширения (в данном случае при выполнении команды). Внутри функции «активировать» мы вызываем «registerCommand». 
+* Мы передаем функцию, содержащую реализацию команды, в качестве второго параметра в `registerCommand`. 
 
-## Setup
+## Настройка 
 
-* install the recommended extensions (amodio.tsl-problem-matcher, ms-vscode.extension-test-runner, and dbaeumer.vscode-eslint)
-
-
-## Get up and running straight away
-
-* Press `F5` to open a new window with your extension loaded.
-* Run your command from the command palette by pressing (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac) and typing `Hello World`.
-* Set breakpoints in your code inside `src/extension.ts` to debug your extension.
-* Find output from your extension in the debug console.
-
-## Make changes
-
-* You can relaunch the extension from the debug toolbar after changing code in `src/extension.ts`.
-* You can also reload (`Ctrl+R` or `Cmd+R` on Mac) the VS Code window with your extension to load your changes.
+* установите рекомендуемые расширения (amodio.tsl-problem-matcher, ms-vscode.extension-test-runner и dbaeumer.vscode-eslint) 
 
 
-## Explore the API
+## Немедленно вставайте и бегите 
 
-* You can open the full set of our API when you open the file `node_modules/@types/vscode/index.d.ts`.
+* Нажмите `F5`, чтобы открыть новое окно с загруженным расширением. 
+* Запустите команду из палитры команд, нажав (Ctrl+Shift+P или Cmd+Shift+P на Mac) и набрав «Hello World». 
+* Установите точки останова в своем коде внутри `src/extension.ts` для отладки вашего расширения. 
+* Найдите выходные данные вашего расширения в консоли отладки. 
 
-## Run tests
+## Внесение изменений 
 
-* Install the [Extension Test Runner](https://marketplace.visualstudio.com/items?itemName=ms-vscode.extension-test-runner)
-* Run the "watch" task via the **Tasks: Run Task** command. Make sure this is running, or tests might not be discovered.
-* Open the Testing view from the activity bar and click the Run Test" button, or use the hotkey `Ctrl/Cmd + ; A`
-* See the output of the test result in the Test Results view.
-* Make changes to `src/test/extension.test.ts` or create new test files inside the `test` folder.
-  * The provided test runner will only consider files matching the name pattern `**.test.ts`.
-  * You can create folders inside the `test` folder to structure your tests any way you want.
+* Вы можете перезапустить расширение с панели инструментов отладки после изменения кода в `src/extension.ts`. 
+* Вы также можете перезагрузить (Ctrl+R или Cmd+R на Mac) окно VS Code с вашим расширением, чтобы загрузить изменения. 
 
-## Go further
 
-* Reduce the extension size and improve the startup time by [bundling your extension](https://code.visualstudio.com/api/working-with-extensions/bundling-extension).
-* [Publish your extension](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) on the VS Code extension marketplace.
-* Automate builds by setting up [Continuous Integration](https://code.visualstudio.com/api/working-with-extensions/continuous-integration).
+## Изучите API 
+
+* Вы можете открыть полный набор нашего API, открыв файл `node_modules/@types/vscode/index.d.ts`. 
+
+## Запуск тестов 
+
+* Установите [Extension Test Runner] (https://marketplace.visualstudio.com/items?itemName=ms-vscode.extension-test-runner). 
+* Запустите задачу «Наблюдение» с помощью команды **Задачи: Выполнить задачу**. Убедитесь, что он запущен, иначе тесты могут быть не обнаружены. 
+* Откройте представление «Тестирование» на панели действий и нажмите кнопку «Выполнить тест» или используйте горячую клавишу `Ctrl/Cmd + ; A` 
+* См. вывод результатов теста в представлении «Результаты теста». 
+* Внесите изменения в `src/test/extension.test.ts` или создайте новые тестовые файлы в папке `test`. 
+* Предоставленный инструмент запуска тестов будет рассматривать только файлы, соответствующие шаблону имен `**.test.ts`. 
+* Вы можете создавать папки внутри папки «test» и структурировать свои тесты по своему усмотрению. 
+
+## Иди дальше 
+
+* Уменьшите размер расширения и сократите время запуска, [объединив расширение](https://code.visualstudio.com/api/working-with-extensions/bundling-extension). 
+* [Опубликуйте свое расширение](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) на рынке расширений VS Code. 
+* Автоматизируйте сборку, настроив [Непрерывную интеграцию](https://code.visualstudio.com/api/working-with-extensions/continious-integration).

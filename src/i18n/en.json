@@ -6,7 +6,10 @@
     "commands": {
         "edit": "Edit",
         "delete": "Delete",
-        "run": "Run"
+        "run": "Run",
+        "menu": "Menu",
+        "top": "Top",
+        "down": "Down"
     },
     "form": {
         "title": "Command title",
@@ -20,6 +23,15 @@
         "noCommands": "No saved commands",
         "deleteConfirm": "Are you sure you want to delete command \"{title}\"?",
         "saved": "Command saved",
-        "deleted": "Command deleted"
+        "deleted": "Command deleted",
+        "emptyCommand": "Command is empty",
+        "error": "Error",
+        "commandInserted": "Command inserted into terminal",
+        "commandExecuted": "Command executed in terminal"
+    },
+    "settings": {
+        "focusTerminal": "Focus terminal",
+        "executeCommand": "Execute command immediately",
+        "clearBeforeRun": "Clear before run"
     }
 }

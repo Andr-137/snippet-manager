@@ -12,6 +12,9 @@ export interface Translation {
         edit: string;
         delete: string;
         run: string;
+        menu: string;
+        top: string;
+        down: string;
     };
     form: {
         title: string;
@@ -26,6 +29,15 @@ export interface Translation {
         deleteConfirm: string;
         saved: string;
         deleted: string;
+        emptyCommand: string;        
+        error: string;               
+        commandInserted: string;     
+        commandExecuted: string;     
+    };
+    settings: {                      
+        focusTerminal: string;
+        executeCommand: string;
+        clearBeforeRun: string;
     };
 }
 
@@ -41,7 +53,7 @@ function loadTranslation(lang: string): Translation {
         console.error(`Error loading translation for ${lang}:`, error);
     }
 
-    // Возвращаем перевод по умолчанию (русский) если файл не найден
+    // Возвращаем перевод по умолчанию если файл не найден
     return {
         header: {
             add: lang === 'en' ? 'Add' : 'Добавить',
@@ -50,7 +62,10 @@ function loadTranslation(lang: string): Translation {
         commands: {
             edit: lang === 'en' ? 'Edit' : 'Изменить',
             delete: lang === 'en' ? 'Delete' : 'Удалить',
-            run: lang === 'en' ? 'Run' : 'Запустить'
+            run: lang === 'en' ? 'Run' : 'Запустить',
+            menu: lang === 'en' ? "Menu" : "Меню",
+            top: lang === 'en' ? 'Top' : 'Вверх',
+            down: lang === 'en' ? 'Down' : 'Вниз'
         },
         form: {
             title: lang === 'en' ? 'Command title' : 'Название команды',
@@ -64,7 +79,16 @@ function loadTranslation(lang: string): Translation {
             noCommands: lang === 'en' ? 'No saved commands' : 'Нет сохраненных команд',
             deleteConfirm: lang === 'en' ? 'Are you sure you want to delete command "{title}"?' : 'Вы уверены, что хотите удалить команду "{title}"?',
             saved: lang === 'en' ? 'Command saved' : 'Команда сохранена',
-            deleted: lang === 'en' ? 'Command deleted' : 'Команда удалена'
+            deleted: lang === 'en' ? 'Command deleted' : 'Команда удалена',
+            emptyCommand: lang === 'en' ? 'Command is empty' : 'Команда пустая',
+            error: lang === 'en' ? 'Error' : 'Ошибка',
+            commandInserted: lang === 'en' ? 'Command inserted into terminal' : 'Команда вставлена в терминал',
+            commandExecuted: lang === 'en' ? 'Command executed in terminal' : 'Команда выполнена в терминале'
+        },
+        settings: {
+            focusTerminal: lang === 'en' ? 'Focus terminal' : 'Фокусировать терминал',
+            executeCommand: lang === 'en' ? 'Execute command immediately' : 'Выполнять команду сразу',
+            clearBeforeRun: lang === 'en' ? 'Clear before run' : 'Очищать перед запуском'
         }
     };
 }
