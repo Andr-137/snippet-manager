@@ -33,4 +33,4 @@
 
 ## Лицензия
 
-MIT
+Licensed under the [MIT License](LICENSE).
