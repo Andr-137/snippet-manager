@@ -98,7 +98,7 @@ class CommandRunnerViewProvider {
             await this._refresh();
         }
     }
-    async _refresh() {
+    async _refresh(keepMenuOpenFor) {
         if (!this._view) {
             return;
         }
@@ -108,7 +108,8 @@ class CommandRunnerViewProvider {
             this._view.webview.postMessage({
                 type: 'refreshCommands',
                 commands: commands,
-                translation: translation
+                translation: translation,
+                keepMenuOpenFor: keepMenuOpenFor // Передаем параметр сохранения меню
             });
         }
         catch (error) {
@@ -278,7 +279,19 @@ class CommandRunnerViewProvider {
             // Меняем команды местами
             [commands[currentIndex], commands[newIndex]] = [commands[newIndex], commands[currentIndex]];
             (0, storage_1.saveCommands)(this._context, commands);
-            await this._refresh();
+            // Сохраняем ID команды, для которой было открыто меню
+            const commandIdToKeepMenuOpen = id;
+            // Обновляем команды в webview
+            if (this._view) {
+                const translation = i18n_1.i18n.getTranslation();
+                this._view.webview.postMessage({
+                    type: 'refreshCommands',
+                    commands: commands,
+                    translation: translation,
+                    // Передаем ID команды, для которой нужно сохранить открытое меню
+                    keepMenuOpenFor: commandIdToKeepMenuOpen
+                });
+            }
             console.log('✅ Команда успешно перемещена');
         }
         catch (error) {
@@ -622,7 +635,7 @@ class CommandRunnerViewProvider {
                 /* Модальные окна */
                 .modal-overlay {
                     position: fixed;
-                    top: 90px;
+                    top: 100px;
                     left: 0;
                     right: 0;
                     bottom: 0;
@@ -796,7 +809,7 @@ class CommandRunnerViewProvider {
                 let searchResults = [];
                 let isSearchActive = false;
 
-                function updateList(commands, translation, isSearchResult = false) {
+                function updateList(commands, translation, isSearchResult = false, keepMenuOpenFor = null) {
                     if (translation) {
                         currentTranslation = translation;
                     }
@@ -820,6 +833,16 @@ class CommandRunnerViewProvider {
                         const item = createCommandItem(cmd, index);
                         list.appendChild(item);
                         commandItems.push(item);
+                        
+                        // Если указано сохранить меню открытым для этой команды
+                        if (keepMenuOpenFor && cmd.id === keepMenuOpenFor) {
+                            setTimeout(() => {
+                                const button = item.querySelector('.dots');
+                                if (button) {
+                                    toggleMenu(button, null);
+                                }
+                            }, 50);
+                        }
                     });
                     
                     // Восстанавливаем активный элемент если нужно
@@ -1352,7 +1375,7 @@ class CommandRunnerViewProvider {
                     const message = event.data;
                     if (message.type === 'refreshCommands') {
                         currentCommands = message.commands;
-                        updateList(message.commands, message.translation);
+                        updateList(message.commands, message.translation, false, message.keepMenuOpenFor);
                     } else if (message.type === 'searchResults') {
                         showSearchDropdown(message.results);
                     } else if (message.type === 'setActiveCommand') {

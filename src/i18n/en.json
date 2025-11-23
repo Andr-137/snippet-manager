@@ -37,8 +37,8 @@
     },
     "search": {
         "type": "Search by",
-        "text": "Text",
-        "command": "Command",
+        "text": "TITLE",
+        "command": "COMMAND",
         "placeholder": "Enter text to search...",
         "clear": "Clear search"
     }

@@ -59,7 +59,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
                         case 'changeLanguage':
                             await this._changeLanguage(message.language);
                             break;
-                        case 'moveUp': 
+                        case 'moveUp':
                             await this._moveCommand(message.id, 'up');
                             break;
                         case 'moveDown':
@@ -105,7 +105,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private async _refresh() {
+    private async _refresh(keepMenuOpenFor?: string) {
         if (!this._view) { return; }
 
         try {
@@ -115,7 +115,8 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
             this._view.webview.postMessage({
                 type: 'refreshCommands',
                 commands: commands,
-                translation: translation
+                translation: translation,
+                keepMenuOpenFor: keepMenuOpenFor // Передаем параметр сохранения меню
             });
         } catch (error) {
             console.error('❌ Ошибка в _refresh:', error);
@@ -254,7 +255,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
 
         } catch (error) {
             console.error('❌ Ошибка при работе с терминалом:', error);
-            
+
             // Безопасное преобразование ошибки в строку
             let errorMessage: string;
             if (error instanceof Error) {
@@ -264,7 +265,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
             } else {
                 errorMessage = String(error);
             }
-            
+
             vscode.window.showErrorMessage(
                 `${i18n.getTranslation().messages.error}: ${errorMessage}`
             );
@@ -274,17 +275,17 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
     private async _moveCommand(id: string, direction: 'up' | 'down') {
         try {
             console.log(`🔄 Перемещение команды ${id} ${direction === 'up' ? 'вверх' : 'вниз'}`);
-            
+
             const commands = loadCommands(this._context);
             const currentIndex = commands.findIndex(c => c.id === id);
-            
+
             if (currentIndex === -1) {
                 console.log('❌ Команда для перемещения не найдена');
                 return;
             }
 
             let newIndex: number;
-            
+
             if (direction === 'up') {
                 // Перемещение вверх
                 if (currentIndex === 0) {
@@ -303,12 +304,26 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
 
             // Меняем команды местами
             [commands[currentIndex], commands[newIndex]] = [commands[newIndex], commands[currentIndex]];
-            
+
             saveCommands(this._context, commands);
-            await this._refresh();
-            
+
+            // Сохраняем ID команды, для которой было открыто меню
+            const commandIdToKeepMenuOpen = id;
+
+            // Обновляем команды в webview
+            if (this._view) {
+                const translation = i18n.getTranslation();
+                this._view.webview.postMessage({
+                    type: 'refreshCommands',
+                    commands: commands,
+                    translation: translation,
+                    // Передаем ID команды, для которой нужно сохранить открытое меню
+                    keepMenuOpenFor: commandIdToKeepMenuOpen
+                });
+            }
+
             console.log('✅ Команда успешно перемещена');
-            
+
         } catch (error) {
             console.error('❌ Ошибка при перемещении команды:', error);
             let errorMessage: string;
@@ -325,9 +340,9 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
     private async _handleSearch(query: string, searchType: 'text' | 'command') {
         this._searchQuery = query;
         this._searchType = searchType;
-        
+
         const allCommands = loadCommands(this._context);
-        
+
         if (!query.trim()) {
             this._filteredCommands = allCommands;
         } else {
@@ -340,7 +355,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
                 }
             });
         }
-        
+
         await this._refresh();
 
         // Отправляем результаты поиска в webview
@@ -659,7 +674,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
                 /* Модальные окна */
                 .modal-overlay {
                     position: fixed;
-                    top: 90px;
+                    top: 100px;
                     left: 0;
                     right: 0;
                     bottom: 0;
@@ -833,7 +848,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
                 let searchResults = [];
                 let isSearchActive = false;
 
-                function updateList(commands, translation, isSearchResult = false) {
+                function updateList(commands, translation, isSearchResult = false, keepMenuOpenFor = null) {
                     if (translation) {
                         currentTranslation = translation;
                     }
@@ -857,6 +872,16 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
                         const item = createCommandItem(cmd, index);
                         list.appendChild(item);
                         commandItems.push(item);
+                        
+                        // Если указано сохранить меню открытым для этой команды
+                        if (keepMenuOpenFor && cmd.id === keepMenuOpenFor) {
+                            setTimeout(() => {
+                                const button = item.querySelector('.dots');
+                                if (button) {
+                                    toggleMenu(button, null);
+                                }
+                            }, 50);
+                        }
                     });
                     
                     // Восстанавливаем активный элемент если нужно
@@ -1389,7 +1414,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
                     const message = event.data;
                     if (message.type === 'refreshCommands') {
                         currentCommands = message.commands;
-                        updateList(message.commands, message.translation);
+                        updateList(message.commands, message.translation, false, message.keepMenuOpenFor);
                     } else if (message.type === 'searchResults') {
                         showSearchDropdown(message.results);
                     } else if (message.type === 'setActiveCommand') {
@@ -1447,7 +1472,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
 
     private _getErrorHtml(error: any): string {
         let errorMessage: string;
-        
+
         if (error instanceof Error) {
             errorMessage = error.message;
         } else if (typeof error === 'string') {
@@ -1455,7 +1480,7 @@ export class CommandRunnerViewProvider implements vscode.WebviewViewProvider {
         } else {
             errorMessage = String(error);
         }
-        
+
         return `
         <!DOCTYPE html>
         <html>

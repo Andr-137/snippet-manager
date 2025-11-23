@@ -96,8 +96,8 @@ function loadTranslation(lang: string): Translation {
         },
         search: {
             type: lang === 'en' ? 'Search by' : 'Поиск по',
-            text: lang === 'en' ? 'Text' : 'Тексту',
-            command: lang === 'en' ? 'Command' : 'Команде',
+            text: lang === 'en' ? 'TITLE' : 'ТЕКСТУ',
+            command: lang === 'en' ? 'COMMAND' : 'КОМАНДЕ',
             placeholder: lang === 'en' ? 'Enter text to search...' : 'Введите текст для поиска...',
             clear: lang === 'en' ? 'Clear search' : 'Очистить поиск'
         },
