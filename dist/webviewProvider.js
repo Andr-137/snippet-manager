@@ -11,6 +11,9 @@ const i18n_1 = require("./i18n");
 class CommandRunnerViewProvider {
     constructor(_context) {
         this._context = _context;
+        this._filteredCommands = [];
+        this._searchType = 'text';
+        this._searchQuery = '';
         console.log('✅ CommandRunnerViewProvider создан');
     }
     resolveWebviewView(webviewView, _context, _token) {
@@ -55,6 +58,15 @@ class CommandRunnerViewProvider {
                         case 'moveDown':
                             await this._moveCommand(message.id, 'down');
                             break;
+                        case 'search':
+                            await this._handleSearch(message.query, message.searchType);
+                            break;
+                        case 'clearSearch':
+                            await this._clearSearch();
+                            break;
+                        case 'setActiveCommand':
+                            await this._setActiveCommand(message.id);
+                            break;
                     }
                 }
                 catch (error) {
@@ -91,7 +103,7 @@ class CommandRunnerViewProvider {
             return;
         }
         try {
-            const commands = (0, storage_1.loadCommands)(this._context);
+            const commands = this._searchQuery ? this._filteredCommands : (0, storage_1.loadCommands)(this._context);
             const translation = i18n_1.i18n.getTranslation();
             this._view.webview.postMessage({
                 type: 'refreshCommands',
@@ -237,10 +249,116 @@ class CommandRunnerViewProvider {
             vscode_1.default.window.showErrorMessage(`${i18n_1.i18n.getTranslation().messages.error}: ${errorMessage}`);
         }
     }
+    async _moveCommand(id, direction) {
+        try {
+            console.log(`🔄 Перемещение команды ${id} ${direction === 'up' ? 'вверх' : 'вниз'}`);
+            const commands = (0, storage_1.loadCommands)(this._context);
+            const currentIndex = commands.findIndex(c => c.id === id);
+            if (currentIndex === -1) {
+                console.log('❌ Команда для перемещения не найдена');
+                return;
+            }
+            let newIndex;
+            if (direction === 'up') {
+                // Перемещение вверх
+                if (currentIndex === 0) {
+                    console.log('⚠️ Команда уже вверху');
+                    return;
+                }
+                newIndex = currentIndex - 1;
+            }
+            else {
+                // Перемещение вниз
+                if (currentIndex === commands.length - 1) {
+                    console.log('⚠️ Команда уже внизу');
+                    return;
+                }
+                newIndex = currentIndex + 1;
+            }
+            // Меняем команды местами
+            [commands[currentIndex], commands[newIndex]] = [commands[newIndex], commands[currentIndex]];
+            (0, storage_1.saveCommands)(this._context, commands);
+            await this._refresh();
+            console.log('✅ Команда успешно перемещена');
+        }
+        catch (error) {
+            console.error('❌ Ошибка при перемещении команды:', error);
+            let errorMessage;
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            else {
+                errorMessage = String(error);
+            }
+            vscode_1.default.window.showErrorMessage('Ошибка при перемещении команды');
+        }
+    }
+    // Новые методы для поиска
+    async _handleSearch(query, searchType) {
+        this._searchQuery = query;
+        this._searchType = searchType;
+        const allCommands = (0, storage_1.loadCommands)(this._context);
+        if (!query.trim()) {
+            this._filteredCommands = allCommands;
+        }
+        else {
+            const lowerQuery = query.toLowerCase();
+            this._filteredCommands = allCommands.filter(cmd => {
+                if (searchType === 'text') {
+                    return cmd.title.toLowerCase().includes(lowerQuery);
+                }
+                else {
+                    return cmd.command.toLowerCase().includes(lowerQuery);
+                }
+            });
+        }
+        await this._refresh();
+        // Отправляем результаты поиска в webview
+        if (this._view) {
+            this._view.webview.postMessage({
+                type: 'searchResults',
+                results: this._getSearchResults(query, searchType, allCommands)
+            });
+        }
+    }
+    _getSearchResults(query, searchType, allCommands) {
+        if (!query.trim()) {
+            return [];
+        }
+        const lowerQuery = query.toLowerCase();
+        const results = [];
+        allCommands.forEach(cmd => {
+            if (searchType === 'text') {
+                if (cmd.title.toLowerCase().includes(lowerQuery)) {
+                    results.push(cmd.title);
+                }
+            }
+            else {
+                if (cmd.command.toLowerCase().includes(lowerQuery)) {
+                    results.push(cmd.command);
+                }
+            }
+        });
+        // Убираем дубликаты и возвращаем
+        return [...new Set(results)];
+    }
+    async _clearSearch() {
+        this._searchQuery = '';
+        this._filteredCommands = (0, storage_1.loadCommands)(this._context);
+        await this._refresh();
+    }
+    async _setActiveCommand(id) {
+        if (this._view) {
+            this._view.webview.postMessage({
+                type: 'setActiveCommand',
+                id: id
+            });
+        }
+    }
     _getHtmlForWebview(webview) {
         const t = i18n_1.i18n.getTranslation();
         const currentLanguage = i18n_1.i18n.getCurrentLanguage();
-        const html = `
+        return `
         <!DOCTYPE html>
         <html lang="${currentLanguage}">
         <head>
@@ -248,12 +366,11 @@ class CommandRunnerViewProvider {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Command Runner</title>
             <style>
-                /* Cтили */
+                /* Основные стили */
                 body { 
                     font-family: var(--vscode-font-family); 
                     margin: 0; 
                     padding: 0; 
-                    padding-top: 60px;
                     background: var(--vscode-editor-background);
                     color: var(--vscode-foreground);
                 }
@@ -262,13 +379,13 @@ class CommandRunnerViewProvider {
                     top: 0;
                     left: 0;
                     right: 0;
-                    height: 50px;
+                    height: 40px;
                     background: var(--vscode-titleBar-activeBackground);
-                    border-bottom: 1px solid var(--vscode-panel-border);
+                    
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 0 10px;
+                    padding: 0 8px;
                     z-index: 1000;
                 }
                 .language-switcher {
@@ -306,15 +423,102 @@ class CommandRunnerViewProvider {
                     padding: 5px;
                     font-size: 24px;
                 }
+                .add-button:hover {
+                    text-shadow: 0px 1px 20px #ffffffff;
+                }
+
+                /* Стили поиска */
+                .search-header {
+                    position: fixed;
+                    top: 40px;
+                    left: 0;
+                    right: 0;
+                    background: var(--vscode-titleBar-activeBackground);
+                    border-bottom: 1px solid var(--vscode-panel-border);
+                    padding: 8px 8px;
+                    z-index: 999;
+                }
+                .search-type {
+                    display: flex;
+                    gap: 15px;
+                    margin-bottom: 8px;
+                }
+                .search-type-label {
+                    font-size: 12px;
+                    margin-right: 5px;
+                }
+                .search-option {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    cursor: pointer;
+                }
+                .search-input-container {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                }
+                #searchInput {
+                    width: 100%;
+                    padding: 6px 30px 6px 8px;
+                    background: var(--vscode-input-background);
+                    color: var(--vscode-input-foreground);
+                    border: 1px solid var(--vscode-input-border);
+                    border-radius: 2px;
+                    font-size: 13px;
+                }
+                .clear-search-button {
+                    position: absolute;
+                    right: 5px;
+                    background: none;
+                    border: none;
+                    color: var(--vscode-input-foreground);
+                    cursor: pointer;
+                    font-size: 16px;
+                    padding: 0;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .clear-search-button:hover {
+                    background: var(--vscode-toolbar-hoverBackground);
+                    border-radius: 2px;
+                }
+                .search-dropdown {
+                    position: fixed;
+                    top: 107px;
+                    left: 8px;
+                    right: 8px;
+                    background: var(--vscode-quickInput-background);
+                    border: 1px solid var(--vscode-quickInput-border);
+                    max-height: 200px;
+                    overflow-y: auto;
+                    z-index: 1000;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                }
+                .search-dropdown-item {
+                    padding: 8px;
+                    cursor: pointer;
+                    border-bottom: 1px solid var(--vscode-quickInput-border);
+                }
+                .search-dropdown-item:hover {
+                    background: var(--vscode-list-hoverBackground);
+                }
+                .search-dropdown-item.active {
+                    background: var(--vscode-list-activeSelectionBackground);
+                    color: var(--vscode-list-activeSelectionForeground);
+                }
+
+                /* Стили контента */
                 .content {
-                    padding: 10px;
+                    padding: 8px;
+                    margin-top: 100px; /* Отступ для header + search */
                 }
                 .command-item {
                     border: 1px solid var(--vscode-panel-border);
-                    padding-top: 10px;
-                    padding-left: 10px;
-                    padding-right: 5px;
-                    padding-bottom: 10px;
+                    padding: 4px 8px;
                     margin-bottom: 4px;
                     border-radius: 3px;
                     background: var(--vscode-panel-background);
@@ -390,7 +594,6 @@ class CommandRunnerViewProvider {
                     align-items: center;
                     justify-content: center;
                     transition: background-color 0.2s;
-
                 }
                 .action-button:hover {
                     background-color: var(--vscode-button-hoverBackground);
@@ -404,8 +607,8 @@ class CommandRunnerViewProvider {
                     color: var(--vscode-button-foreground);
                 }
                 .delete-botton {
-                    background: var(--vscode-inputValidation-errorBackground);
-                    color: var(--vscode-inputValidation-errorForeground);
+                    background: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
                 }
                 .arrow {
                     width: 14px;
@@ -419,13 +622,13 @@ class CommandRunnerViewProvider {
                 /* Модальные окна */
                 .modal-overlay {
                     position: fixed;
-                    top: 50px;
+                    top: 90px;
                     left: 0;
                     right: 0;
                     bottom: 0;
                     background: rgba(0,0,0,0.5);
                     display: flex;
-                    align-items: flex-start;
+                    align-items: start;
                     justify-content: center;
                     z-index: 2000;
                 }
@@ -433,20 +636,17 @@ class CommandRunnerViewProvider {
                     background: var(--vscode-editor-background);
                     border: 1px solid var(--vscode-panel-border);
                     border-radius: 4px;
-                    padding: 10px;
+                    padding: 8px;
                     width: 98%;
                     max-width: 500px;
-                    margin-top: 20px;
+                    margin: 6px;
                 }
                 .form-group {
                     margin-bottom: 15px;
                 }
                 .form-group input {
                     width: 95%;
-                    padding-top: 8px;
-                    padding-left: 8px;
-                    padding-right: 3px;
-                    padding-bottom: 8px;
+                    padding: 8px;
                     background: var(--vscode-input-background);
                     color: var(--vscode-input-foreground);
                     border: 1px solid var(--vscode-input-border);
@@ -510,93 +710,135 @@ class CommandRunnerViewProvider {
             </svg>
 
             <div class="header">
-            <div class="language-switcher">
-                <span>${t.header.language}:</span>
-                <div class="language-option" onclick="changeLanguage('ru')">
-                    <div class="vscode-radio ${currentLanguage === 'ru' ? 'checked' : ''}"></div>
-                    <span>RU</span>
+                <div class="language-switcher">
+                    <span>${t.header.language}:</span>
+                    <div class="language-option" onclick="changeLanguage('ru')">
+                        <div class="vscode-radio ${currentLanguage === 'ru' ? 'checked' : ''}"></div>
+                        <span>RU</span>
+                    </div>
+                    <div class="language-option" onclick="changeLanguage('en')">
+                        <div class="vscode-radio ${currentLanguage === 'en' ? 'checked' : ''}"></div>
+                        <span>EN</span>
+                    </div>
                 </div>
-                <div class="language-option" onclick="changeLanguage('en')">
-                    <div class="vscode-radio ${currentLanguage === 'en' ? 'checked' : ''}"></div>
-                    <span>EN</span>
+                <button class="add-button" onclick="openAddModal()" title="${t.header.add}">＋</button>
+            </div>
+
+            <div class="search-header">
+                <div class="search-type">
+                    <span class="search-type-label">${t.search.type}:</span>
+                    <div class="search-option" onclick="changeSearchType('text')">
+                        <div class="vscode-radio ${this._searchType === 'text' ? 'checked' : ''}"></div>
+                        <span>${t.search.text}</span>
+                    </div>
+                    <div class="search-option" onclick="changeSearchType('command')">
+                        <div class="vscode-radio ${this._searchType === 'command' ? 'checked' : ''}"></div>
+                        <span>${t.search.command}</span>
+                    </div>
+                </div>
+                <div class="search-input-container">
+                    <input type="text" id="searchInput" placeholder="${t.search.placeholder}" 
+                        oninput="handleSearchInput(this.value)" onkeydown="handleSearchKeydown(event)">
+                    <button class="clear-search-button" onclick="clearSearch()" title="${t.search.clear}">
+                        ×
+                    </button>
                 </div>
             </div>
-            <button class="add-button" onclick="openAddModal()" title="${t.header.add}">＋</button>
-        </div>
 
-        <div class="content">
-            <div class="command-list" id="commandList">
-                <div class="no-commands">${t.messages.noCommands}</div>
-            </div>
-        </div>
+            <div id="searchDropdown" class="search-dropdown hidden"></div>
 
-        <!-- Модальные окна -->
-        <div id="modalOverlay" class="modal-overlay hidden">
-            <div class="modal">
-                <div class="form-group">
-                    <input type="text" id="modalTitleInput" placeholder="${t.form.title}">
-                </div>
-                <div class="form-group">
-                    <input type="text" id="modalCommandInput" placeholder="${t.form.command}">
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-secondary" onclick="closeModal()">${t.form.cancel}</button>
-                    <button class="btn-primary" onclick="saveModal()">${t.form.save}</button>
+            <div class="content">
+                <div class="command-list" id="commandList">
+                    <div class="no-commands">${t.messages.noCommands}</div>
                 </div>
             </div>
-        </div>
 
-        <div id="deleteConfirmOverlay" class="modal-overlay hidden">
-            <div class="modal">
-                <p id="deleteConfirmMessage">${t.messages.deleteConfirm}</p>
-                <div class="modal-footer">
-                    <button class="btn-secondary" onclick="hideDeleteConfirm()">${t.form.cancel}</button>
-                    <button class="btn-danger" onclick="confirmDelete()">${t.commands.delete}</button>
+            <!-- Модальные окна -->
+            <div id="modalOverlay" class="modal-overlay hidden">
+                <div class="modal">
+                    <div class="form-group">
+                        <input type="text" id="modalTitleInput" placeholder="${t.form.title}">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modalCommandInput" placeholder="${t.form.command}">
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="closeModal()">${t.form.cancel}</button>
+                        <button class="btn-primary" onclick="saveModal()">${t.form.save}</button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <script>
-            const vscode = acquireVsCodeApi();
-            let currentCommands = [];
-            let currentTranslation = ${JSON.stringify(t)};
-            let editingId = '';
-            let pendingDeleteId = null;
-            let pendingDeleteTitle = null;
-            let activeIndex = -1;
-            let commandItems = [];
-            let lastOpenedMenu = null;
+            <div id="deleteConfirmOverlay" class="modal-overlay hidden">
+                <div class="modal">
+                    <p id="deleteConfirmMessage">${t.messages.deleteConfirm}</p>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="hideDeleteConfirm()">${t.form.cancel}</button>
+                        <button class="btn-danger" onclick="confirmDelete()">${t.commands.delete}</button>
+                    </div>
+                </div>
+            </div>
 
-            function updateList(commands, translation) {
-                if (translation) {
-                    currentTranslation = translation;
-                }
+            <script>
+                const vscode = acquireVsCodeApi();
+                let currentCommands = [];
+                let currentTranslation = ${JSON.stringify(t)};
+                let editingId = '';
+                let pendingDeleteId = null;
+                let pendingDeleteTitle = null;
+                let activeIndex = -1;
+                let commandItems = [];
+                let lastOpenedMenu = null;
                 
-                const list = document.getElementById('commandList');
-                list.innerHTML = '';
-                
-                if (commands.length === 0) {
-                    list.innerHTML = '<div class="no-commands">' + currentTranslation.messages.noCommands + '</div>';
+                // Переменные для поиска
+                let searchType = '${this._searchType}';
+                let searchQuery = '';
+                let searchResults = [];
+                let isSearchActive = false;
+
+                function updateList(commands, translation, isSearchResult = false) {
+                    if (translation) {
+                        currentTranslation = translation;
+                    }
+                    
+                    const list = document.getElementById('commandList');
+                    list.innerHTML = '';
+                    
+                    if (commands.length === 0) {
+                        const message = isSearchResult ? currentTranslation.messages.noSearchResults : currentTranslation.messages.noCommands;
+                        list.innerHTML = '<div class="no-commands">' + message + '</div>';
+                        commandItems = [];
+                        activeIndex = -1;
+                        lastOpenedMenu = null;
+                        return;
+                    }
+                    
+                    currentCommands = commands;
                     commandItems = [];
-                    activeIndex = -1;
-                    lastOpenedMenu = null;
-                    return;
+                    
+                    commands.forEach((cmd, index) => {
+                        const item = createCommandItem(cmd, index);
+                        list.appendChild(item);
+                        commandItems.push(item);
+                    });
+                    
+                    // Восстанавливаем активный элемент если нужно
+                    if (activeIndex >= 0 && activeIndex < commandItems.length) {
+                        setActive(activeIndex);
+                    } else if (commandItems.length > 0) {
+                        setActive(0);
+                    }
                 }
-                
-                currentCommands = commands;
-                commandItems = [];
-                
-                commands.forEach((cmd, index) => {
+
+                function createCommandItem(cmd, index) {
                     const item = document.createElement('div');
                     item.className = 'command-item';
                     item.setAttribute('data-index', index);
                     item.setAttribute('data-command-id', cmd.id);
                     
-                    // Экранируем специальные символы
                     const safeTitle = cmd.title.replace(/'/g, "\\\\'").replace(/"/g, "&quot;");
                     const safeCommand = cmd.command.replace(/'/g, "\\\\'").replace(/"/g, "&quot;");
                     
-                    // Создаем HTML структуру без дублирующих обработчиков
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'command-title';
                     titleDiv.textContent = cmd.title;
@@ -621,7 +863,6 @@ class CommandRunnerViewProvider {
                     const shiftDiv = document.createElement('div');
                     shiftDiv.className = 'menu-item-shift';
                     
-                    // Кнопка перемещения вверх
                     const upButton = document.createElement('button');
                     upButton.className = 'action-button arrow-buttom-top';
                     upButton.title = currentTranslation.commands.top;
@@ -631,12 +872,11 @@ class CommandRunnerViewProvider {
                     }
                     upButton.innerHTML = '<svg class="arrow"><use href="#icon-arrow-top"></use></svg>';
                     
-                    // Кнопка перемещения вниз
                     const downButton = document.createElement('button');
                     downButton.className = 'action-button arrow-buttom-bottom';
                     downButton.title = currentTranslation.commands.down;
-                    downButton.disabled = index === commands.length - 1;
-                    if (index === commands.length - 1) {
+                    downButton.disabled = index === currentCommands.length - 1;
+                    if (index === currentCommands.length - 1) {
                         downButton.style.opacity = '0.5';
                     }
                     downButton.innerHTML = '<svg class="arrow"><use href="#icon-arrow-bottom"></use></svg>';
@@ -644,19 +884,16 @@ class CommandRunnerViewProvider {
                     const blockDiv = document.createElement('div');
                     blockDiv.className = 'menu-item-block';
                     
-                    // Кнопка редактирования
                     const editButton = document.createElement('button');
                     editButton.className = 'action-button edit-botton';
                     editButton.title = currentTranslation.commands.edit;
                     editButton.innerHTML = '<svg class="edit"><use href="#icon-edit"></use></svg>';
                     
-                    // Кнопка удаления
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'action-button delete-botton';
                     deleteButton.title = currentTranslation.commands.delete;
                     deleteButton.innerHTML = '<svg class="delete"><use href="#icon-delete"></use></svg>';
                     
-                    // Собираем структуру
                     shiftDiv.appendChild(upButton);
                     shiftDiv.appendChild(downButton);
                     
@@ -673,9 +910,6 @@ class CommandRunnerViewProvider {
                     
                     item.appendChild(titleDiv);
                     item.appendChild(actionsDiv);
-                    
-                    list.appendChild(item);
-                    commandItems.push(item);
                     
                     // Обработчики событий
                     dotsButton.addEventListener('click', function(e) {
@@ -703,268 +937,475 @@ class CommandRunnerViewProvider {
                         showDeleteConfirm(cmd.id, safeTitle, e);
                     });
                     
-                    // ОДИН обработчик на весь элемент команды
+                    // ОБНОВЛЕННЫЙ обработчик клика
                     item.addEventListener('click', function(e) {
-                        // Проверяем, что клик был не по кнопкам меню и не по самому меню
                         if (!e.target.closest('.command-actions') && 
                             !e.target.closest('.menu-item')) {
+                            
+                            // Удаляем активный класс у всех элементов
+                            document.querySelectorAll('.command-item').forEach(el => {
+                                el.classList.remove('active');
+                            });
+                            
+                            // Добавляем активный класс текущему элементу
+                            this.classList.add('active');
+                            
+                            // Обновляем активный индекс
+                            activeIndex = index;
+                            
+                            // Запускаем команду
                             runCommand(cmd.command);
                         }
                     });
-                });
-                
-                // Восстанавливаем открытое меню после обновления списка
-                if (lastOpenedMenu) {
-                    const menuElement = document.querySelector('[data-command-id="' + lastOpenedMenu + '"] .menu-item');
-                    if (menuElement) {
-                        menuElement.style.display = 'block';
+                    
+                    return item;
+                }
+
+                function setActive(index) {
+                    commandItems.forEach(item => item.classList.remove('active'));
+                    if (index >= 0 && index < commandItems.length) {
+                        commandItems[index].classList.add('active');
+                        activeIndex = index;
                     }
                 }
-                
-                // Устанавливаем активный элемент
-                if (commandItems.length > 0) {
-                    setActive(0);
-                }
-            }
 
-            function setActive(index) {
-                commandItems.forEach(item => item.classList.remove('active'));
-                if (index >= 0 && index < commandItems.length) {
-                    commandItems[index].classList.add('active');
-                    activeIndex = index;
-                }
-            }
-
-            function toggleMenu(button, event) {
-                if (event) {
-                    event.stopPropagation();
-                    event.preventDefault();
-                }
-                
-                const menu = button.parentElement.querySelector('.menu-item');
-                const isVisible = menu.style.display === 'block';
-                const commandId = button.closest('.command-item').getAttribute('data-command-id');
-                
-                // Скрываем все меню
-                document.querySelectorAll('.menu-item').forEach(m => {
-                    m.style.display = 'none';
-                });
-                
-                // Показываем/скрываем текущее меню
-                menu.style.display = isVisible ? 'none' : 'block';
-                
-                // Сохраняем ID команды для восстановления меню после обновления
-                if (!isVisible) {
-                    lastOpenedMenu = commandId;
-                } else {
-                    lastOpenedMenu = null;
-                }
-            }
-
-            // Функции перемещения
-            function moveUp(id, event) {
-                if (event) {
-                    event.stopPropagation();
-                    event.preventDefault();
-                }
-                console.log('Перемещение вверх команды:', id);
-                vscode.postMessage({
-                    command: 'moveUp',
-                    id: id
-                });
-            }
-
-            function moveDown(id, event) {
-                if (event) {
-                    event.stopPropagation();
-                    event.preventDefault();
-                }
-                console.log('Перемещение вниз команды:', id);
-                vscode.postMessage({
-                    command: 'moveDown',
-                    id: id
-                });
-            }
-
-            // Остальные функции (openEditModal, showDeleteConfirm, runCommand и т.д.)
-            function openEditModal(id, title, command, event) {
-                if (event) {
-                    event.stopPropagation();
-                    event.preventDefault();
-                }
-                editingId = id;
-                document.getElementById('modalTitleInput').value = title;
-                document.getElementById('modalCommandInput').value = command;
-                document.getElementById('modalOverlay').classList.remove('hidden');
-                // Закрываем меню после открытия модального окна
-                lastOpenedMenu = null;
-                document.querySelectorAll('.menu-item').forEach(menu => {
-                    menu.style.display = 'none';
-                });
-            }
-
-            function showDeleteConfirm(id, title, event) {
-                if (event) {
-                    event.stopPropagation();
-                    event.preventDefault();
-                }
-                pendingDeleteId = id;
-                pendingDeleteTitle = title;
-                
-                const message = currentTranslation.messages.deleteConfirm.replace('{title}', title);
-                document.getElementById('deleteConfirmMessage').textContent = message;
-                document.getElementById('deleteConfirmOverlay').classList.remove('hidden');
-                // Закрываем меню после открытия диалога подтверждения
-                lastOpenedMenu = null;
-                document.querySelectorAll('.menu-item').forEach(menu => {
-                    menu.style.display = 'none';
-                });
-            }
-
-            function openAddModal() {
-                editingId = '';
-                document.getElementById('modalTitleInput').value = '';
-                document.getElementById('modalCommandInput').value = '';
-                document.getElementById('modalOverlay').classList.remove('hidden');
-            }
-
-            function closeModal() {
-                document.getElementById('modalOverlay').classList.add('hidden');
-            }
-
-            function saveModal() {
-                const title = document.getElementById('modalTitleInput').value.trim();
-                const command = document.getElementById('modalCommandInput').value.trim();
-                
-                if (!title) {
-                    alert('Введите название команды');
-                    return;
-                }
-                if (!command) {
-                    alert('Введите команду');
-                    return;
-                }
-                
-                vscode.postMessage({
-                    command: 'saveCommand',
-                    item: { id: editingId, title, command }
-                });
-                closeModal();
-            }
-
-            function hideDeleteConfirm() {
-                document.getElementById('deleteConfirmOverlay').classList.add('hidden');
-                pendingDeleteId = null;
-                pendingDeleteTitle = null;
-            }
-
-            function confirmDelete() {
-                if (pendingDeleteId) {
-                    vscode.postMessage({
-                        command: 'deleteCommand',
-                        id: pendingDeleteId,
-                        title: pendingDeleteTitle
+                function toggleMenu(button, event) {
+                    if (event) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    }
+                    
+                    const menu = button.parentElement.querySelector('.menu-item');
+                    const isVisible = menu.style.display === 'block';
+                    const commandId = button.closest('.command-item').getAttribute('data-command-id');
+                    
+                    document.querySelectorAll('.menu-item').forEach(m => {
+                        m.style.display = 'none';
                     });
-                    hideDeleteConfirm();
+                    
+                    menu.style.display = isVisible ? 'none' : 'block';
+                    
+                    if (!isVisible) {
+                        lastOpenedMenu = commandId;
+                    } else {
+                        lastOpenedMenu = null;
+                    }
                 }
-            }
 
-            function runCommand(cmd) {
-                console.log('🚀 Запуск команды:', cmd, 'Время:', new Date().toISOString());
-                vscode.postMessage({
-                    command: 'runCommand', 
-                    commandText: cmd 
-                });
-            }
+                function moveUp(id, event) {
+                    if (event) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    }
+                    vscode.postMessage({
+                        command: 'moveUp',
+                        id: id
+                    });
+                }
 
-            function changeLanguage(lang) {
-                vscode.postMessage({
-                    command: 'changeLanguage',
-                    language: lang
-                });
-            }
+                function moveDown(id, event) {
+                    if (event) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    }
+                    vscode.postMessage({
+                        command: 'moveDown',
+                        id: id
+                    });
+                }
 
-            // Навигация по клавишам
-            document.addEventListener('keydown', function(e) {
-                if (commandItems.length === 0) return;
-                
-                switch(e.key) {
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        if (activeIndex > 0) {
-                            setActive(activeIndex - 1);
-                        }
-                        break;
+                function openEditModal(id, title, command, event) {
+                    if (event) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    }
+                    editingId = id;
+                    document.getElementById('modalTitleInput').value = title;
+                    document.getElementById('modalCommandInput').value = command;
+                    document.getElementById('modalOverlay').classList.remove('hidden');
+                    lastOpenedMenu = null;
+                    document.querySelectorAll('.menu-item').forEach(menu => {
+                        menu.style.display = 'none';
+                    });
+                }
+
+                function showDeleteConfirm(id, title, event) {
+                    if (event) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    }
+                    pendingDeleteId = id;
+                    pendingDeleteTitle = title;
                     
-                    case 'ArrowDown':
-                        e.preventDefault();
-                        if (activeIndex < commandItems.length - 1) {
-                            setActive(activeIndex + 1);
-                        }
-                        break;
+                    const message = currentTranslation.messages.deleteConfirm.replace('{title}', title);
+                    document.getElementById('deleteConfirmMessage').textContent = message;
+                    document.getElementById('deleteConfirmOverlay').classList.remove('hidden');
+                    lastOpenedMenu = null;
+                    document.querySelectorAll('.menu-item').forEach(menu => {
+                        menu.style.display = 'none';
+                    });
+                }
+
+                function openAddModal() {
+                    editingId = '';
+                    document.getElementById('modalTitleInput').value = '';
+                    document.getElementById('modalCommandInput').value = '';
+                    document.getElementById('modalOverlay').classList.remove('hidden');
+                }
+
+                function closeModal() {
+                    document.getElementById('modalOverlay').classList.add('hidden');
+                }
+
+                function saveModal() {
+                    const title = document.getElementById('modalTitleInput').value.trim();
+                    const command = document.getElementById('modalCommandInput').value.trim();
                     
-                    case 'Enter':
-                        e.preventDefault();
-                        if (activeIndex >= 0) {
-                            const cmd = currentCommands[activeIndex];
-                            if (cmd) {
-                                runCommand(cmd.command);
+                    if (!title) {
+                        alert('Введите название команды');
+                        return;
+                    }
+                    if (!command) {
+                        alert('Введите команду');
+                        return;
+                    }
+                    
+                    vscode.postMessage({
+                        command: 'saveCommand',
+                        item: { id: editingId, title, command }
+                    });
+                    closeModal();
+                }
+
+                function hideDeleteConfirm() {
+                    document.getElementById('deleteConfirmOverlay').classList.add('hidden');
+                    pendingDeleteId = null;
+                    pendingDeleteTitle = null;
+                }
+
+                function confirmDelete() {
+                    if (pendingDeleteId) {
+                        vscode.postMessage({
+                            command: 'deleteCommand',
+                            id: pendingDeleteId,
+                            title: pendingDeleteTitle
+                        });
+                        hideDeleteConfirm();
+                    }
+                }
+
+                function runCommand(cmd) {
+                    vscode.postMessage({
+                        command: 'runCommand', 
+                        commandText: cmd 
+                    });
+                }
+
+                function changeLanguage(lang) {
+                    vscode.postMessage({
+                        command: 'changeLanguage',
+                        language: lang
+                    });
+                }
+
+                // Функции для поиска
+                function changeSearchType(type) {
+                    searchType = type;
+                    updateSearchTypeUI();
+                    
+                    if (searchQuery) {
+                        performSearch();
+                    } else {
+                        // Обновляем выпадающий список с новым типом поиска
+                        vscode.postMessage({
+                            command: 'search',
+                            query: '',
+                            searchType: searchType
+                        });
+                    }
+                }
+
+                function updateSearchTypeUI() {
+                    // Обновляем визуальное отображение выбранного типа поиска
+                    document.querySelectorAll('.search-option .vscode-radio').forEach((radio, index) => {
+                        if (index === 0) {
+                            radio.classList.toggle('checked', searchType === 'text');
+                        } else {
+                            radio.classList.toggle('checked', searchType === 'command');
+                        }
+                    });
+                }
+
+                function handleSearchInput(value) {
+                    searchQuery = value;
+                    if (value) {
+                        performSearch();
+                    } else {
+                        hideSearchDropdown();
+                        clearSearch();
+                    }
+                }
+
+                function handleSearchKeydown(event) {
+                    if (event.key === 'Escape') {
+                        clearSearch();
+                        document.getElementById('searchInput').blur();
+                    } else if (event.key === 'ArrowDown' && isSearchActive) {
+                        event.preventDefault();
+                        navigateSearchResults(1);
+                    } else if (event.key === 'ArrowUp' && isSearchActive) {
+                        event.preventDefault();
+                        navigateSearchResults(-1);
+                    } else if (event.key === 'Enter' && isSearchActive && searchResults.length > 0) {
+                        event.preventDefault();
+                        selectSearchResult();
+                    }
+                }
+
+                function performSearch() {
+                    vscode.postMessage({
+                        command: 'search',
+                        query: searchQuery,
+                        searchType: searchType
+                    });
+                }
+
+                function clearSearch() {
+                    searchQuery = '';
+                    document.getElementById('searchInput').value = '';
+                    hideSearchDropdown();
+                    vscode.postMessage({
+                        command: 'clearSearch'
+                    });
+                }
+
+                function showSearchDropdown(results) {
+                    const dropdown = document.getElementById('searchDropdown');
+                    dropdown.innerHTML = '';
+                    dropdown.classList.remove('hidden');
+                    
+                    searchResults = results;
+                    isSearchActive = true;
+                    
+                    if (results.length === 0) {
+                        const noResults = document.createElement('div');
+                        noResults.className = 'search-dropdown-item';
+                        noResults.textContent = currentTranslation.messages.noSearchResults;
+                        noResults.style.color = 'var(--vscode-descriptionForeground)';
+                        noResults.style.cursor = 'default';
+                        dropdown.appendChild(noResults);
+                        return;
+                    }
+                    
+                    results.forEach((result, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'search-dropdown-item';
+                        item.textContent = result;
+                        item.setAttribute('data-index', index);
+                        item.setAttribute('data-search-value', result);
+                        
+                        item.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            selectSearchResult(result);
+                        });
+                        
+                        dropdown.appendChild(item);
+                    });
+                }
+
+                function hideSearchDropdown() {
+                    const dropdown = document.getElementById('searchDropdown');
+                    dropdown.classList.add('hidden');
+                    searchResults = [];
+                    isSearchActive = false;
+                }
+
+                function navigateSearchResults(direction) {
+                    const items = document.querySelectorAll('.search-dropdown-item');
+                    if (items.length === 0) return;
+                    
+                    let currentIndex = -1;
+                    items.forEach((item, index) => {
+                        if (item.classList.contains('active')) {
+                            currentIndex = index;
+                            item.classList.remove('active');
+                        }
+                    });
+                    
+                    let newIndex = currentIndex + direction;
+                    if (newIndex < 0) newIndex = items.length - 1;
+                    if (newIndex >= items.length) newIndex = 0;
+                    
+                    items[newIndex].classList.add('active');
+                    items[newIndex].scrollIntoView({ block: 'nearest' });
+                }
+
+                function selectSearchResult(value = null) {
+                    let selectedValue = value;
+                    
+                    if (!selectedValue) {
+                        const activeItem = document.querySelector('.search-dropdown-item.active');
+                        if (activeItem) {
+                            selectedValue = activeItem.getAttribute('data-search-value');
+                        } else if (searchResults.length > 0) {
+                            selectedValue = searchResults[0];
+                        }
+                    }
+                    
+                    if (selectedValue) {
+                        // Подставляем значение в поле поиска
+                        document.getElementById('searchInput').value = selectedValue;
+                        searchQuery = selectedValue;
+                        
+                        // Находим и активируем соответствующую команду
+                        findAndActivateCommand(selectedValue);
+                        hideSearchDropdown();
+                    }
+                }
+
+                function findAndActivateCommand(searchValue) {
+                    const lowerSearchValue = searchValue.toLowerCase();
+                    let foundCommand = null;
+                    
+                    // Ищем команду по заголовку или команде в зависимости от типа поиска
+                    if (searchType === 'text') {
+                        foundCommand = currentCommands.find(cmd => 
+                            cmd.title.toLowerCase() === lowerSearchValue
+                        );
+                    } else {
+                        foundCommand = currentCommands.find(cmd => 
+                            cmd.command.toLowerCase() === lowerSearchValue
+                        );
+                    }
+                    
+                    if (foundCommand) {
+                        setActiveCommandInList(foundCommand.id);
+                    }
+                }
+
+                function setActiveCommandInList(commandId) {
+                    const commandElement = document.querySelector(\`[data-command-id="\${commandId}"]\`);
+                    if (commandElement) {
+                        document.querySelectorAll('.command-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        
+                        commandElement.classList.add('active');
+                        
+                        commandElement.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                        
+                        const index = parseInt(commandElement.getAttribute('data-index'));
+                        if (!isNaN(index)) {
+                            activeIndex = index;
+                        }
+                    }
+                }
+
+                // Навигация по клавишам
+                document.addEventListener('keydown', function(e) {
+                    if (document.activeElement.id === 'searchInput') {
+                        return;
+                    }
+                    
+                    if (commandItems.length === 0) return;
+                    
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            if (activeIndex > 0) {
+                                setActive(activeIndex - 1);
                             }
-                        }
-                        break;
+                            break;
+                        
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            if (activeIndex < commandItems.length - 1) {
+                                setActive(activeIndex + 1);
+                            }
+                            break;
+                        
+                        case 'Enter':
+                            e.preventDefault();
+                            if (activeIndex >= 0) {
+                                const cmd = currentCommands[activeIndex];
+                                if (cmd) {
+                                    runCommand(cmd.command);
+                                }
+                            }
+                            break;
+                    }
+                });
+
+                // Инициализация UI при загрузке
+                function initializeUI() {
+                    updateSearchTypeUI();
                 }
-            });
 
-            // Загрузка при открытии
-            vscode.postMessage({ command: 'loadCommands' });
+                // Загрузка при открытии
+                vscode.postMessage({ command: 'loadCommands' });
 
-            // Обработка сообщений из расширения
-            window.addEventListener('message', event => {
-                const message = event.data;
-                if (message.type === 'refreshCommands') {
-                    currentCommands = message.commands;
-                    updateList(message.commands, message.translation);
-                }
-            });
+                // Обработка сообщений из расширения
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    if (message.type === 'refreshCommands') {
+                        currentCommands = message.commands;
+                        updateList(message.commands, message.translation);
+                    } else if (message.type === 'searchResults') {
+                        showSearchDropdown(message.results);
+                    } else if (message.type === 'setActiveCommand') {
+                        setActiveCommandInList(message.id);
+                    }
+                });
 
-            // Закрытие модальных окон
-            document.getElementById('modalOverlay').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeModal();
-                }
-            });
+                // Закрытие модальных окон
+                document.getElementById('modalOverlay').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeModal();
+                    }
+                });
 
-            document.getElementById('deleteConfirmOverlay').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    hideDeleteConfirm();
-                }
-            });
+                document.getElementById('deleteConfirmOverlay').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        hideDeleteConfirm();
+                    }
+                });
 
-            // Закрытие по ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    closeModal();
-                    hideDeleteConfirm();
-                    // Также закрываем все меню при ESC
+                // Закрытие по ESC
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        closeModal();
+                        hideDeleteConfirm();
+                        document.querySelectorAll('.menu-item').forEach(menu => {
+                            menu.style.display = 'none';
+                        });
+                        lastOpenedMenu = null;
+                    }
+                });
+
+                // Скрываем меню при клике вне его
+                document.addEventListener('click', function() {
                     document.querySelectorAll('.menu-item').forEach(menu => {
                         menu.style.display = 'none';
                     });
                     lastOpenedMenu = null;
-                }
-            });
-
-            // Скрываем меню при клике вне его
-            document.addEventListener('click', function() {
-                document.querySelectorAll('.menu-item').forEach(menu => {
-                    menu.style.display = 'none';
                 });
-                lastOpenedMenu = null;
-            });
-        </script>
+
+                // Закрываем выпадающий список поиска при клике вне его
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.search-input-container') && 
+                        !e.target.closest('.search-dropdown')) {
+                        hideSearchDropdown();
+                    }
+                });
+
+                // Инициализация UI
+                initializeUI();
+            </script>
         </body>
-        </html>
-        `;
-        return html;
+        </html>`;
     }
     _getErrorHtml(error) {
         let errorMessage;
@@ -995,50 +1436,6 @@ class CommandRunnerViewProvider {
             <button onclick="location.reload()">Перезагрузить</button>
         </body>
         </html>`;
-    }
-    async _moveCommand(id, direction) {
-        try {
-            console.log(`🔄 Перемещение команды ${id} ${direction === 'up' ? 'вверх' : 'вниз'}`);
-            const commands = (0, storage_1.loadCommands)(this._context);
-            const currentIndex = commands.findIndex(c => c.id === id);
-            if (currentIndex === -1) {
-                console.log('❌ Команда для перемещения не найдена');
-                return;
-            }
-            let newIndex;
-            if (direction === 'up') {
-                // Перемещение вверх
-                if (currentIndex === 0) {
-                    console.log('⚠️ Команда уже вверху');
-                    return;
-                }
-                newIndex = currentIndex - 1;
-            }
-            else {
-                // Перемещение вниз
-                if (currentIndex === commands.length - 1) {
-                    console.log('⚠️ Команда уже внизу');
-                    return;
-                }
-                newIndex = currentIndex + 1;
-            }
-            // Меняем команды местами
-            [commands[currentIndex], commands[newIndex]] = [commands[newIndex], commands[currentIndex]];
-            (0, storage_1.saveCommands)(this._context, commands);
-            await this._refresh();
-            console.log('✅ Команда успешно перемещена');
-        }
-        catch (error) {
-            console.error('❌ Ошибка при перемещении команды:', error);
-            let errorMessage;
-            if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-            else {
-                errorMessage = String(error);
-            }
-            vscode_1.default.window.showErrorMessage('Ошибка при перемещении команды');
-        }
     }
 }
 exports.CommandRunnerViewProvider = CommandRunnerViewProvider;

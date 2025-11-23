@@ -67,7 +67,7 @@ function loadTranslation(lang) {
         form: {
             title: lang === 'en' ? 'Command title' : 'Название команды',
             command: lang === 'en' ? 'Command (e.g., npm run dev)' : 'Команда (например, npm run dev)',
-            save: lang === 'en' ? 'Save command' : 'Сохранить команду',
+            save: lang === 'en' ? 'Save command' : 'Сохранить',
             cancel: lang === 'en' ? 'Cancel' : 'Отмена',
             addNew: lang === 'en' ? 'Add new command' : 'Добавить новую команду',
             edit: lang === 'en' ? 'Edit command' : 'Редактировать команду'
@@ -80,7 +80,15 @@ function loadTranslation(lang) {
             emptyCommand: lang === 'en' ? 'Command is empty' : 'Команда пустая',
             error: lang === 'en' ? 'Error' : 'Ошибка',
             commandInserted: lang === 'en' ? 'Command inserted into terminal' : 'Команда вставлена в терминал',
-            commandExecuted: lang === 'en' ? 'Command executed in terminal' : 'Команда выполнена в терминале'
+            commandExecuted: lang === 'en' ? 'Command executed in terminal' : 'Команда выполнена в терминале',
+            noSearchResults: lang === 'en' ? 'No results found for your search' : 'По вашему запросу ничего не найдено'
+        },
+        search: {
+            type: lang === 'en' ? 'Search by' : 'Поиск по',
+            text: lang === 'en' ? 'Text' : 'Тексту',
+            command: lang === 'en' ? 'Command' : 'Команде',
+            placeholder: lang === 'en' ? 'Enter text to search...' : 'Введите текст для поиска...',
+            clear: lang === 'en' ? 'Clear search' : 'Очистить поиск'
         },
         settings: {
             focusTerminal: lang === 'en' ? 'Focus terminal' : 'Фокусировать терминал',

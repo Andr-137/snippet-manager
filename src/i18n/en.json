@@ -27,11 +27,19 @@
         "emptyCommand": "Command is empty",
         "error": "Error",
         "commandInserted": "Command inserted into terminal",
-        "commandExecuted": "Command executed in terminal"
+        "commandExecuted": "Command executed in terminal",
+        "noSearchResults": "No results found for your search"
     },
     "settings": {
         "focusTerminal": "Focus terminal",
         "executeCommand": "Execute command immediately",
         "clearBeforeRun": "Clear before run"
+    },
+    "search": {
+        "type": "Search by",
+        "text": "Text",
+        "command": "Command",
+        "placeholder": "Enter text to search...",
+        "clear": "Clear search"
     }
 }
