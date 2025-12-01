@@ -3,7 +3,7 @@
     "displayName": "Commands to the terminal",
     "description": "Команды для терминала",
     "publisher": "Andrey-Ryabov-137",
-    "version": "0.2.1",
+    "version": "0.2.3",
     "engines": {
         "vscode": "^1.105.1"
     },

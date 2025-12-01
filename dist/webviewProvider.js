@@ -527,7 +527,7 @@ class CommandRunnerViewProvider {
                 /* Стили контента */
                 .content {
                     padding: 8px;
-                    margin-top: 100px; /* Отступ для header + search */
+                    margin-top: 107px; /* Отступ для header + search */
                 }
                 .command-item {
                     border: 1px solid var(--vscode-panel-border);
@@ -543,8 +543,9 @@ class CommandRunnerViewProvider {
                 .command-item:hover {
                     background: var(--vscode-list-hoverBackground);
                 }
-                .command-item.active {
-                    background-color: var(--vscode-list-hoverBackground);
+                /* Стили активной команды var(--vscode-list-hoverBackground)*/
+                .active {
+                    background-color: #007a69;
                 }
                 .command-actions {
                     position: relative;
